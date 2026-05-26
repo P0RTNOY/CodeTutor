@@ -90,11 +90,11 @@ def difficulty_badge(difficulty):
 if "code_by_problem" not in st.session_state:
     st.session_state.code_by_problem = {}
 
-if "last_result" not in st.session_state:
-    st.session_state.last_result = None
+if "results_by_problem" not in st.session_state:
+    st.session_state.results_by_problem = {}
 
-if "last_tutor_answer" not in st.session_state:
-    st.session_state.last_tutor_answer = None
+if "tutor_answers_by_problem" not in st.session_state:
+    st.session_state.tutor_answers_by_problem = {}
 
 
 st.title("CodeTutor")
@@ -203,14 +203,16 @@ with right_col:
     if run_clicked or submit_clicked:
         endpoint = "/submit" if submit_clicked else "/run"
 
-        st.session_state.last_result = run_code(
+        st.session_state.results_by_problem[problem["id"]] = run_code(
             endpoint=endpoint,
             problem_id=problem["id"],
             code=user_code
         )
 
-    if st.session_state.last_result:
-        result = st.session_state.last_result
+    current_result = st.session_state.results_by_problem.get(problem["id"])
+
+    if current_result:
+        result = current_result
 
         st.divider()
         st.subheader("Test Results")
@@ -270,12 +272,14 @@ with right_col:
             tutor_endpoint = "/tutor/review-code"
 
         with st.spinner("CodeTutor is thinking..."):
-            st.session_state.last_tutor_answer = call_tutor(
+            st.session_state.tutor_answers_by_problem[problem["id"]] = call_tutor(
                 endpoint=tutor_endpoint,
                 problem_id=problem["id"],
                 code=user_code
             )
 
-    if st.session_state.last_tutor_answer:
+    current_tutor_answer = st.session_state.tutor_answers_by_problem.get(problem["id"])
+
+    if current_tutor_answer:
         st.markdown("### Tutor Response")
-        st.write(st.session_state.last_tutor_answer)
+        st.write(current_tutor_answer)
