@@ -1,0 +1,70 @@
+{
+    "id": "two_sum",
+    "title": "Two Sum",
+    "difficulty": "Easy",
+    "tags": [
+        "Array",
+        "Hash Map"
+    ],
+    "description": "Given a list of integers nums and an integer target, return the indices of the two numbers such that they add up to target. You may assume that each input has exactly one solution, and you may not use the same element twice.",
+    "function_name": "two_sum",
+    "starter_code": "def two_sum(nums, target):\n    pass",
+    "examples": [
+        {
+            "input": "nums = [2, 7, 11, 15], target = 9",
+            "output": "[0, 1]",
+            "explanation": "nums[0] + nums[1] = 2 + 7 = 9"
+        },
+        {
+            "input": "nums = [3, 2, 4], target = 6",
+            "output": "[1, 2]",
+            "explanation": "nums[1] + nums[2] = 2 + 4 = 6"
+        }
+    ],
+    "visible_tests": [
+        {
+            "input": {
+                "nums": [
+                    2,
+                    7,
+                    11,
+                    15
+                ],
+                "target": 9
+            },
+            "expected": [
+                0,
+                1
+            ]
+        },
+        {
+            "input": {
+                "nums": [
+                    3,
+                    2,
+                    4
+                ],
+                "target": 6
+            },
+            "expected": [
+                1,
+                2
+            ]
+        }
+    ],
+    "hidden_tests": [
+        {
+            "input": {
+                "nums": [
+                    3,
+                    3
+                ],
+                "target": 6
+            },
+            "expected": [
+                0,
+                1
+            ]
+        }
+    ]
+}
