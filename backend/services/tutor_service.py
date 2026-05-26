@@ -52,7 +52,12 @@ def ask_ollama(user_prompt: str):
     return data["choices"][0]["message"]["content"]
 
 
-def build_tutor_prompt(mode: str, problem: dict, code: Optional[str] = None):
+def build_tutor_prompt(
+    mode: str,
+    problem: dict,
+    code: Optional[str] = None,
+    failed_test: Optional[dict] = None
+):
     base_prompt = f"""
 Problem title:
 {problem["title"]}
@@ -98,6 +103,26 @@ Task:
 Review the user's code.
 Explain what is good, what may be wrong, and give one concrete next step.
 Do not rewrite the entire solution unless absolutely necessary.
+"""
+
+    if mode == "debug_failed_test":
+        return base_prompt + f"""
+
+User code:
+{code}
+
+Failed test:
+{failed_test}
+
+Task:
+Explain why this specific test failed.
+
+Rules:
+1. Focus on the failed test, not the whole problem.
+2. Explain the expected output versus the actual output.
+3. Point to the likely bug in the user's logic.
+4. Give one concrete next step.
+5. Do not provide the full corrected solution unless the user explicitly asks.
 """
 
     return base_prompt + """

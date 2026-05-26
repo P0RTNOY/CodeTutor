@@ -34,14 +34,19 @@ def get_problem(problem_id):
         return None
 
 
-def call_tutor(endpoint, problem_id, code):
+def call_tutor(endpoint, problem_id, code, failed_test=None):
     try:
+        payload = {
+            "problem_id": problem_id,
+            "code": code
+        }
+
+        if failed_test is not None:
+            payload["failed_test"] = failed_test
+
         response = requests.post(
             f"{API_BASE_URL}{endpoint}",
-            json={
-                "problem_id": problem_id,
-                "code": code
-            },
+            json=payload,
             timeout=130
         )
 
@@ -50,6 +55,17 @@ def call_tutor(endpoint, problem_id, code):
 
     except requests.exceptions.RequestException as error:
         return f"Could not contact AI tutor: {error}"
+
+
+def get_first_failed_test(result):
+    if not result:
+        return None
+
+    for test_result in result.get("results", []):
+        if not test_result.get("passed"):
+            return test_result
+
+    return None
 
 
 def run_code(endpoint, problem_id, code):
@@ -310,7 +326,11 @@ with right_col:
     st.divider()
     st.subheader("AI Tutor")
 
-    tutor_col1, tutor_col2, tutor_col3 = st.columns(3)
+    current_result = st.session_state.results_by_problem.get(problem["id"])
+    first_failed_test = get_first_failed_test(current_result)
+
+    tutor_col1, tutor_col2 = st.columns(2)
+    tutor_col3, tutor_col4 = st.columns(2)
 
     with tutor_col1:
         explain_clicked = st.button("Explain Problem", use_container_width=True)
@@ -321,19 +341,32 @@ with right_col:
     with tutor_col3:
         review_clicked = st.button("Review My Code", use_container_width=True)
 
-    if explain_clicked or hint_clicked or review_clicked:
+    with tutor_col4:
+        debug_clicked = st.button(
+            "Debug Failed Test",
+            use_container_width=True,
+            disabled=first_failed_test is None
+        )
+
+    if explain_clicked or hint_clicked or review_clicked or debug_clicked:
+        failed_test_payload = None
+
         if explain_clicked:
             tutor_endpoint = "/tutor/explain-problem"
         elif hint_clicked:
             tutor_endpoint = "/tutor/hint"
-        else:
+        elif review_clicked:
             tutor_endpoint = "/tutor/review-code"
+        else:
+            tutor_endpoint = "/tutor/debug-failed-test"
+            failed_test_payload = first_failed_test
 
         with st.spinner("CodeTutor is thinking..."):
             st.session_state.tutor_answers_by_problem[problem["id"]] = call_tutor(
                 endpoint=tutor_endpoint,
                 problem_id=problem["id"],
-                code=user_code
+                code=user_code,
+                failed_test=failed_test_payload
             )
 
     current_tutor_answer = st.session_state.tutor_answers_by_problem.get(problem["id"])
