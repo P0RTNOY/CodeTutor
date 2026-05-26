@@ -73,6 +73,18 @@ def run_code(endpoint, problem_id, code):
             "results": []
         }
 
+def get_submission_history(problem_id):
+    try:
+        response = requests.get(
+            f"{API_BASE_URL}/submissions/{problem_id}",
+            timeout=5
+        )
+
+        response.raise_for_status()
+        return response.json()["submissions"]
+
+    except requests.exceptions.RequestException:
+        return []
 
 def difficulty_badge(difficulty):
     if difficulty == "Easy":
@@ -283,3 +295,25 @@ with right_col:
     if current_tutor_answer:
         st.markdown("### Tutor Response")
         st.write(current_tutor_answer)
+        st.divider()
+    st.subheader("Submission History")
+
+    history = get_submission_history(problem["id"])
+
+    if not history:
+        st.info("No submissions yet for this problem.")
+    else:
+        for submission in history[:5]:
+            status = submission["status"]
+            passed_tests = submission["passed_tests"]
+            total_tests = submission["total_tests"]
+            created_at = submission["created_at"]
+
+            if status == "passed":
+                st.success(
+                    f"{created_at} — Passed ({passed_tests}/{total_tests})"
+                )
+            else:
+                st.error(
+                    f"{created_at} — {status.title()} ({passed_tests}/{total_tests})"
+                )

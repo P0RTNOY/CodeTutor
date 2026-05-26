@@ -2,6 +2,10 @@ from pydantic import BaseModel
 from fastapi import APIRouter
 
 from backend.services.execution_service import run_user_code
+from backend.services.submission_service import (
+    save_submission,
+    get_submissions_by_problem
+)
 
 
 router = APIRouter(
@@ -25,8 +29,23 @@ def run_code(request: RunCodeRequest):
 
 @router.post("/submit")
 def submit_code(request: RunCodeRequest):
-    return run_user_code(
+    result = run_user_code(
         problem_id=request.problem_id,
         code=request.code,
         use_hidden_tests=True
     )
+
+    save_submission(
+        problem_id=request.problem_id,
+        code=request.code,
+        result=result
+    )
+
+    return result
+
+
+@router.get("/submissions/{problem_id}")
+def get_problem_submissions(problem_id: str):
+    return {
+        "submissions": get_submissions_by_problem(problem_id)
+    }

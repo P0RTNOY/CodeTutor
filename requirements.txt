@@ -4,3 +4,4 @@ streamlit
 requests
 pydantic
 openai
+sqlite3
