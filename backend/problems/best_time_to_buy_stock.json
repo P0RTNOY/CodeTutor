@@ -1,0 +1,72 @@
+{
+    "id": "best_time_to_buy_stock",
+    "title": "Best Time to Buy and Sell Stock",
+    "difficulty": "Easy",
+    "tags": [
+        "Array",
+        "Dynamic Programming"
+    ],
+    "description": "Given a list prices where prices[i] is the price of a stock on day i, return the maximum profit you can achieve by choosing one day to buy and a later day to sell. If no profit is possible, return 0.",
+    "function_name": "max_profit",
+    "starter_code": "def max_profit(prices):\n    pass",
+    "examples": [
+        {
+            "input": "prices = [7, 1, 5, 3, 6, 4]",
+            "output": "5",
+            "explanation": "Buy at price 1 and sell at price 6 for a profit of 5."
+        },
+        {
+            "input": "prices = [7, 6, 4, 3, 1]",
+            "output": "0",
+            "explanation": "No profitable transaction is possible."
+        }
+    ],
+    "visible_tests": [
+        {
+            "input": {
+                "prices": [
+                    7,
+                    1,
+                    5,
+                    3,
+                    6,
+                    4
+                ]
+            },
+            "expected": 5
+        },
+        {
+            "input": {
+                "prices": [
+                    7,
+                    6,
+                    4,
+                    3,
+                    1
+                ]
+            },
+            "expected": 0
+        }
+    ],
+    "hidden_tests": [
+        {
+            "input": {
+                "prices": [
+                    2,
+                    4,
+                    1
+                ]
+            },
+            "expected": 2
+        },
+        {
+            "input": {
+                "prices": [
+                    1,
+                    2
+                ]
+            },
+            "expected": 1
+        }
+    ]
+}

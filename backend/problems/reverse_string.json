@@ -1,0 +1,77 @@
+{
+    "id": "reverse_string",
+    "title": "Reverse String",
+    "difficulty": "Easy",
+    "tags": [
+        "Two Pointers",
+        "String"
+    ],
+    "description": "Given a list of characters s, reverse the list in-place and return it. You should modify the original list instead of creating a new string.",
+    "function_name": "reverse_string",
+    "starter_code": "def reverse_string(s):\n    pass",
+    "examples": [
+        {
+            "input": "s = [\"h\", \"e\", \"l\", \"l\", \"o\"]",
+            "output": "[\"o\", \"l\", \"l\", \"e\", \"h\"]",
+            "explanation": "The characters are reversed in-place."
+        }
+    ],
+    "visible_tests": [
+        {
+            "input": {
+                "s": [
+                    "h",
+                    "e",
+                    "l",
+                    "l",
+                    "o"
+                ]
+            },
+            "expected": [
+                "o",
+                "l",
+                "l",
+                "e",
+                "h"
+            ]
+        },
+        {
+            "input": {
+                "s": [
+                    "H",
+                    "a",
+                    "n",
+                    "n",
+                    "a",
+                    "h"
+                ]
+            },
+            "expected": [
+                "h",
+                "a",
+                "n",
+                "n",
+                "a",
+                "H"
+            ]
+        }
+    ],
+    "hidden_tests": [
+        {
+            "input": {
+                "s": [
+                    "a"
+                ]
+            },
+            "expected": [
+                "a"
+            ]
+        },
+        {
+            "input": {
+                "s": []
+            },
+            "expected": []
+        }
+    ]
+}
