@@ -150,3 +150,45 @@ with right_col:
 
         except requests.exceptions.RequestException as error:
             st.error(f"Could not run code: {error}")
+        st.divider()
+    st.subheader("AI Tutor")
+
+    tutor_col1, tutor_col2, tutor_col3 = st.columns(3)
+
+    with tutor_col1:
+        explain_clicked = st.button("Explain Problem")
+
+    with tutor_col2:
+        hint_clicked = st.button("Give Hint")
+
+    with tutor_col3:
+        review_clicked = st.button("Review My Code")
+
+    if explain_clicked or hint_clicked or review_clicked:
+        if explain_clicked:
+            tutor_endpoint = "/tutor/explain-problem"
+        elif hint_clicked:
+            tutor_endpoint = "/tutor/hint"
+        else:
+            tutor_endpoint = "/tutor/review-code"
+
+        with st.spinner("CodeTutor is thinking..."):
+            try:
+                response = requests.post(
+                    f"{API_BASE_URL}{tutor_endpoint}",
+                    json={
+                        "problem_id": problem["id"],
+                        "code": user_code
+                    },
+                    timeout=130
+                )
+
+                response.raise_for_status()
+                tutor_result = response.json()
+
+                st.markdown("### Tutor Response")
+                st.write(tutor_result["answer"])
+
+            except requests.exceptions.RequestException as error:
+                st.error(f"Could not contact AI tutor: {error}")
+        
