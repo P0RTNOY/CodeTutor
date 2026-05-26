@@ -86,6 +86,27 @@ def get_submission_history(problem_id):
     except requests.exceptions.RequestException:
         return []
 
+
+def get_progress():
+    try:
+        response = requests.get(
+            f"{API_BASE_URL}/progress",
+            timeout=5
+        )
+
+        response.raise_for_status()
+        return response.json()
+
+    except requests.exceptions.RequestException:
+        return {
+            "total_problems": 0,
+            "solved_total": 0,
+            "progress_percent": 0,
+            "solved_problem_ids": [],
+            "by_difficulty": {}
+        }
+
+
 def difficulty_badge(difficulty):
     if difficulty == "Easy":
         return "🟢 Easy"
@@ -119,9 +140,29 @@ if not problems:
     st.warning("No problems found.")
     st.stop()
 
+progress = get_progress()
+solved_problem_ids = set(progress["solved_problem_ids"])
+
 
 with st.sidebar:
     st.header("Problems")
+    
+    st.subheader("Progress")
+
+    solved_total = progress["solved_total"]
+    total_problems = progress["total_problems"]
+    progress_percent = progress["progress_percent"]
+
+    st.write(f"**Solved:** {solved_total} / {total_problems}")
+    st.progress(progress_percent / 100)
+
+    for difficulty, data in progress["by_difficulty"].items():
+        st.caption(
+            f"{difficulty}: {data['solved']} / {data['total']}"
+        )
+
+    st.divider()
+    
 
     difficulties = ["All"] + sorted(
         list({problem["difficulty"] for problem in problems})
@@ -142,10 +183,12 @@ with st.sidebar:
 
     st.write(f"Showing **{len(filtered_problems)}** of **{len(problems)}** problems")
 
-    problem_labels = {
-        f"{problem['title']} — {problem['difficulty']}": problem["id"]
-        for problem in filtered_problems
-    }
+    problem_labels = {}
+
+    for problem in filtered_problems:
+        solved_prefix = "✅ " if problem["id"] in solved_problem_ids else ""
+        label = f"{solved_prefix}{problem['title']} — {problem['difficulty']}"
+        problem_labels[label] = problem["id"]
 
     selected_label = st.selectbox(
         "Choose a problem",
@@ -221,6 +264,9 @@ with right_col:
             code=user_code
         )
 
+        if submit_clicked:
+            st.rerun()
+
     current_result = st.session_state.results_by_problem.get(problem["id"])
 
     if current_result:
@@ -295,7 +341,8 @@ with right_col:
     if current_tutor_answer:
         st.markdown("### Tutor Response")
         st.write(current_tutor_answer)
-        st.divider()
+
+    st.divider()
     st.subheader("Submission History")
 
     history = get_submission_history(problem["id"])

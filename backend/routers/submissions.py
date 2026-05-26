@@ -1,10 +1,12 @@
 from pydantic import BaseModel
 from fastapi import APIRouter
+from backend.services.problem_service import load_all_problems
 
 from backend.services.execution_service import run_user_code
 from backend.services.submission_service import (
     save_submission,
-    get_submissions_by_problem
+    get_submissions_by_problem,
+    get_progress_summary
 )
 
 
@@ -49,3 +51,9 @@ def get_problem_submissions(problem_id: str):
     return {
         "submissions": get_submissions_by_problem(problem_id)
     }
+
+@router.get("/progress")
+def get_progress():
+    problems = load_all_problems()
+
+    return get_progress_summary(problems)
