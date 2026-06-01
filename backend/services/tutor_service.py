@@ -56,7 +56,8 @@ def build_tutor_prompt(
     mode: str,
     problem: dict,
     code: Optional[str] = None,
-    failed_test: Optional[dict] = None
+    failed_test: Optional[dict] = None,
+    question: Optional[str] = None
 ):
     base_prompt = f"""
 Problem title:
@@ -124,7 +125,29 @@ Rules:
 4. Give one concrete next step.
 5. Do not provide the full corrected solution unless the user explicitly asks.
 """
+    if mode == "custom_question":
+        return base_prompt + f"""
 
+User code:
+{code}
+
+Latest failed test, if available:
+{failed_test}
+
+User question:
+{question}
+
+Task:
+Answer the user's question in the context of this problem and their code.
+
+Rules:
+1. Stay focused on the user's question.
+2. Use the problem details and user code when relevant.
+3. If the question asks for a hint, give a hint without revealing the full solution.
+4. If the question asks for complexity, explain time and space complexity clearly.
+5. If the question asks for a full solution, you may provide it.
+6. If the question is unrelated to this coding problem, politely redirect back to the problem.
+"""
     return base_prompt + """
 
 Task:

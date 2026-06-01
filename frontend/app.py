@@ -34,7 +34,7 @@ def get_problem(problem_id):
         return None
 
 
-def call_tutor(endpoint, problem_id, code, failed_test=None):
+def call_tutor(endpoint, problem_id, code, failed_test=None, question=None):
     try:
         payload = {
             "problem_id": problem_id,
@@ -43,6 +43,9 @@ def call_tutor(endpoint, problem_id, code, failed_test=None):
 
         if failed_test is not None:
             payload["failed_test"] = failed_test
+
+        if question is not None:
+            payload["question"] = question
 
         response = requests.post(
             f"{API_BASE_URL}{endpoint}",
@@ -367,6 +370,29 @@ with right_col:
                 problem_id=problem["id"],
                 code=user_code,
                 failed_test=failed_test_payload
+            )
+    st.markdown("#### Ask a Custom Question")
+
+    custom_question = st.text_input(
+        "Ask CodeTutor about this problem",
+        placeholder="Example: Why do we use a hash map here?",
+        key=f"custom_question_{problem['id']}"
+    )
+
+    ask_clicked = st.button(
+        "Ask CodeTutor",
+        use_container_width=True,
+        disabled=not custom_question.strip()
+    )
+
+    if ask_clicked:
+        with st.spinner("CodeTutor is thinking..."):
+            st.session_state.tutor_answers_by_problem[problem["id"]] = call_tutor(
+                endpoint="/tutor/ask",
+                problem_id=problem["id"],
+                code=user_code,
+                failed_test=first_failed_test,
+                question=custom_question
             )
 
     current_tutor_answer = st.session_state.tutor_answers_by_problem.get(problem["id"])

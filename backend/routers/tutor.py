@@ -16,6 +16,7 @@ class TutorRequest(BaseModel):
     problem_id: str
     code: Optional[str] = None
     failed_test: Optional[dict] = None
+    question: Optional[str] = None
 
 
 @router.post("/explain-problem")
@@ -107,6 +108,36 @@ def debug_failed_test(request: TutorRequest):
         problem=problem,
         code=request.code,
         failed_test=request.failed_test
+    )
+
+    answer = ask_ollama(prompt)
+
+    return {
+        "answer": answer
+    }
+
+@router.post("/ask")
+def ask_custom_question(request: TutorRequest):
+    problem = load_problem(request.problem_id)
+
+    if problem is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Problem '{request.problem_id}' was not found"
+        )
+
+    if not request.question:
+        raise HTTPException(
+            status_code=400,
+            detail="No question was provided"
+        )
+
+    prompt = build_tutor_prompt(
+        mode="custom_question",
+        problem=problem,
+        code=request.code,
+        failed_test=request.failed_test,
+        question=request.question
     )
 
     answer = ask_ollama(prompt)
