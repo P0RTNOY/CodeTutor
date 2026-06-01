@@ -1,6 +1,8 @@
+from datetime import datetime
 import streamlit as st
 import requests
 from streamlit_ace import st_ace
+
 
 API_BASE_URL = "http://localhost:8000"
 
@@ -69,6 +71,23 @@ def get_first_failed_test(result):
             return test_result
 
     return None
+
+def add_tutor_answer(problem_id, answer_type, answer, question=None):
+    if problem_id not in st.session_state.tutor_answers_by_problem:
+        st.session_state.tutor_answers_by_problem[problem_id] = []
+
+    entry = {
+        "type": answer_type,
+        "question": question,
+        "answer": answer,
+        "created_at": datetime.now().strftime("%H:%M:%S")
+    }
+
+    st.session_state.tutor_answers_by_problem[problem_id].insert(0, entry)
+
+    st.session_state.tutor_answers_by_problem[problem_id] = (
+        st.session_state.tutor_answers_by_problem[problem_id][:5]
+    )
 
 
 def run_code(endpoint, problem_id, code):
@@ -151,6 +170,9 @@ if "tutor_answers_by_problem" not in st.session_state:
 if "last_run_code_by_problem" not in st.session_state:
     st.session_state.last_run_code_by_problem = {}
 
+if "editor_versions" not in st.session_state:
+    st.session_state.editor_versions = {}
+
 
 st.title("CodeTutor")
 st.caption("Practice coding problems with an AI tutor.")
@@ -230,6 +252,9 @@ code_key = problem["id"]
 if code_key not in st.session_state.code_by_problem:
     st.session_state.code_by_problem[code_key] = problem["starter_code"]
 
+if code_key not in st.session_state.editor_versions:
+    st.session_state.editor_versions[code_key] = 0
+
 
 left_col, right_col = st.columns([1, 1])
 
@@ -266,7 +291,7 @@ with right_col:
         value=st.session_state.code_by_problem[code_key],
         language="python",
         theme="monokai",
-        key=f"editor_{code_key}",
+        key=f"editor_{code_key}_{st.session_state.editor_versions[code_key]}",
         height=400,
         font_size=14,
         tab_size=4,
@@ -288,8 +313,8 @@ with right_col:
         if problem["id"] in st.session_state.results_by_problem:
             del st.session_state.results_by_problem[problem["id"]]
 
-        if problem["id"] in st.session_state.tutor_answers_by_problem:
-            del st.session_state.tutor_answers_by_problem[problem["id"]]
+        # if problem["id"] in st.session_state.tutor_answers_by_problem:
+        #     del st.session_state.tutor_answers_by_problem[problem["id"]]
 
     reset_col, info_col = st.columns([1, 3])
 
@@ -301,6 +326,7 @@ with right_col:
 
     if reset_clicked:
         st.session_state.code_by_problem[code_key] = problem["starter_code"]
+        st.session_state.editor_versions[code_key] += 1
 
         if problem["id"] in st.session_state.results_by_problem:
             del st.session_state.results_by_problem[problem["id"]]
@@ -418,20 +444,30 @@ with right_col:
 
         if explain_clicked:
             tutor_endpoint = "/tutor/explain-problem"
+            answer_type = "Explain Problem"
         elif hint_clicked:
             tutor_endpoint = "/tutor/hint"
+            answer_type = "Hint"
         elif review_clicked:
             tutor_endpoint = "/tutor/review-code"
+            answer_type = "Review Code"
         else:
             tutor_endpoint = "/tutor/debug-failed-test"
+            answer_type = "Debug Failed Test"
             failed_test_payload = first_failed_test
 
         with st.spinner("CodeTutor is thinking..."):
-            st.session_state.tutor_answers_by_problem[problem["id"]] = call_tutor(
+            answer = call_tutor(
                 endpoint=tutor_endpoint,
                 problem_id=problem["id"],
                 code=user_code,
                 failed_test=failed_test_payload
+            )
+
+            add_tutor_answer(
+                problem_id=problem["id"],
+                answer_type=answer_type,
+                answer=answer
             )
     st.markdown("#### Ask a Custom Question")
 
@@ -449,7 +485,7 @@ with right_col:
 
     if ask_clicked:
         with st.spinner("CodeTutor is thinking..."):
-            st.session_state.tutor_answers_by_problem[problem["id"]] = call_tutor(
+            answer = call_tutor(
                 endpoint="/tutor/ask",
                 problem_id=problem["id"],
                 code=user_code,
@@ -457,11 +493,35 @@ with right_col:
                 question=custom_question
             )
 
-    current_tutor_answer = st.session_state.tutor_answers_by_problem.get(problem["id"])
+            add_tutor_answer(
+                problem_id=problem["id"],
+                answer_type="Custom Question",
+                answer=answer,
+                question=custom_question
+            )
 
-    if current_tutor_answer:
-        st.markdown("### Tutor Response")
-        st.write(current_tutor_answer)
+    current_tutor_history = st.session_state.tutor_answers_by_problem.get(problem["id"], [])
+
+    if current_tutor_history:
+        st.markdown("### AI Tutor History")
+
+        clear_history_clicked = st.button(
+            "Clear Tutor History",
+            use_container_width=True
+        )
+
+        if clear_history_clicked:
+            st.session_state.tutor_answers_by_problem[problem["id"]] = []
+            st.rerun()
+
+        for index, entry in enumerate(current_tutor_history, start=1):
+            title = f"{entry['type']} — {entry['created_at']}"
+
+            with st.expander(title, expanded=index == 1):
+                if entry.get("question"):
+                    st.write(f"**Question:** {entry['question']}")
+
+                st.write(entry["answer"])
 
     st.divider()
     st.subheader("Submission History")
