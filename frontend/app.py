@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-
+from streamlit_ace import st_ace
 
 API_BASE_URL = "http://localhost:8000"
 
@@ -257,14 +257,24 @@ with left_col:
 with right_col:
     st.subheader("Your Python Solution")
 
-    user_code = st.text_area(
-        label="Code",
-        value=st.session_state.code_by_problem[code_key],
-        height=400,
-        key=f"editor_{code_key}"
-    )
+    user_code = st_ace(
+    value=st.session_state.code_by_problem[code_key],
+    language="python",
+    theme="monokai",
+    key=f"editor_{code_key}",
+    height=400,
+    font_size=14,
+    tab_size=4,
+    show_gutter=True,
+    show_print_margin=False,
+    wrap=False,
+    auto_update=True
+)
 
-    st.session_state.code_by_problem[code_key] = user_code
+    if user_code is not None:
+        st.session_state.code_by_problem[code_key] = user_code
+    else:
+        user_code = st.session_state.code_by_problem[code_key]
 
     run_col, submit_col = st.columns(2)
 
