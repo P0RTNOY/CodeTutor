@@ -148,6 +148,9 @@ if "results_by_problem" not in st.session_state:
 if "tutor_answers_by_problem" not in st.session_state:
     st.session_state.tutor_answers_by_problem = {}
 
+if "last_run_code_by_problem" not in st.session_state:
+    st.session_state.last_run_code_by_problem = {}
+
 
 st.title("CodeTutor")
 st.caption("Practice coding problems with an AI tutor.")
@@ -232,9 +235,11 @@ left_col, right_col = st.columns([1, 1])
 
 
 with left_col:
-    st.header(problem["title"])
-
+    title_suffix = " ✅ Solved" if problem["id"] in solved_problem_ids else ""
+    
+    st.header(f"{problem['title']}{title_suffix}")
     st.write(f"**Difficulty:** {difficulty_badge(problem['difficulty'])}")
+    
     st.write(f"**Tags:** {', '.join(problem['tags'])}")
 
     st.divider()
@@ -258,31 +263,76 @@ with right_col:
     st.subheader("Your Python Solution")
 
     user_code = st_ace(
-    value=st.session_state.code_by_problem[code_key],
-    language="python",
-    theme="monokai",
-    key=f"editor_{code_key}",
-    height=400,
-    font_size=14,
-    tab_size=4,
-    show_gutter=True,
-    show_print_margin=False,
-    wrap=False,
-    auto_update=True
-)
+        value=st.session_state.code_by_problem[code_key],
+        language="python",
+        theme="monokai",
+        key=f"editor_{code_key}",
+        height=400,
+        font_size=14,
+        tab_size=4,
+        show_gutter=True,
+        show_print_margin=False,
+        wrap=False,
+        auto_update=True
+    )
 
-    if user_code is not None:
-        st.session_state.code_by_problem[code_key] = user_code
-    else:
+    if user_code is None:
         user_code = st.session_state.code_by_problem[code_key]
+
+    previous_code = st.session_state.code_by_problem[code_key]
+    code_changed = user_code != previous_code
+
+    if code_changed:
+        st.session_state.code_by_problem[code_key] = user_code
+
+        if problem["id"] in st.session_state.results_by_problem:
+            del st.session_state.results_by_problem[problem["id"]]
+
+        if problem["id"] in st.session_state.tutor_answers_by_problem:
+            del st.session_state.tutor_answers_by_problem[problem["id"]]
+
+    reset_col, info_col = st.columns([1, 3])
+
+    with reset_col:
+        reset_clicked = st.button("Reset Code", use_container_width=True)
+
+    with info_col:
+        st.caption("Run Code checks visible tests. Submit checks all tests and saves your result.")
+
+    if reset_clicked:
+        st.session_state.code_by_problem[code_key] = problem["starter_code"]
+
+        if problem["id"] in st.session_state.results_by_problem:
+            del st.session_state.results_by_problem[problem["id"]]
+
+        if problem["id"] in st.session_state.tutor_answers_by_problem:
+            del st.session_state.tutor_answers_by_problem[problem["id"]]
+
+        if problem["id"] in st.session_state.last_run_code_by_problem:
+            del st.session_state.last_run_code_by_problem[problem["id"]]
+
+        st.rerun()
+
+    last_run_code = st.session_state.last_run_code_by_problem.get(problem["id"])
+
+    if last_run_code is not None and last_run_code != user_code:
+        st.warning("Code changed since the last run. Run again to update the results.")
 
     run_col, submit_col = st.columns(2)
 
     with run_col:
-        run_clicked = st.button("Run Code", use_container_width=True)
+        run_clicked = st.button(
+            "Run Code",
+            use_container_width=True,
+            help="Runs visible tests only. Does not save the submission."
+        )
 
     with submit_col:
-        submit_clicked = st.button("Submit", use_container_width=True)
+        submit_clicked = st.button(
+            "Submit",
+            use_container_width=True,
+            help="Runs visible and hidden tests, then saves the submission."
+        )
 
     if run_clicked or submit_clicked:
         endpoint = "/submit" if submit_clicked else "/run"
@@ -292,6 +342,8 @@ with right_col:
             problem_id=problem["id"],
             code=user_code
         )
+
+        st.session_state.last_run_code_by_problem[problem["id"]] = user_code
 
         if submit_clicked:
             st.rerun()
