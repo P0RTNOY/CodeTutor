@@ -14,12 +14,13 @@ st.set_page_config(
 )
 
 
+# ── Helper functions ────────────────────────────────────────────────────────────
+
 def get_problems():
     try:
         response = requests.get(f"{API_BASE_URL}/problems", timeout=5)
         response.raise_for_status()
         return response.json()["problems"]
-
     except requests.exceptions.RequestException as error:
         st.error(f"Could not load problems: {error}")
         return []
@@ -30,7 +31,6 @@ def get_problem(problem_id):
         response = requests.get(f"{API_BASE_URL}/problems/{problem_id}", timeout=5)
         response.raise_for_status()
         return response.json()
-
     except requests.exceptions.RequestException as error:
         st.error(f"Could not load problem: {error}")
         return None
@@ -38,14 +38,9 @@ def get_problem(problem_id):
 
 def call_tutor(endpoint, problem_id, code, failed_test=None, question=None):
     try:
-        payload = {
-            "problem_id": problem_id,
-            "code": code
-        }
-
+        payload = {"problem_id": problem_id, "code": code}
         if failed_test is not None:
             payload["failed_test"] = failed_test
-
         if question is not None:
             payload["question"] = question
 
@@ -54,10 +49,8 @@ def call_tutor(endpoint, problem_id, code, failed_test=None, question=None):
             json=payload,
             timeout=130
         )
-
         response.raise_for_status()
         return response.json()["answer"]
-
     except requests.exceptions.RequestException as error:
         return f"Could not contact AI tutor: {error}"
 
@@ -65,12 +58,11 @@ def call_tutor(endpoint, problem_id, code, failed_test=None, question=None):
 def get_first_failed_test(result):
     if not result:
         return None
-
     for test_result in result.get("results", []):
         if not test_result.get("passed"):
             return test_result
-
     return None
+
 
 def add_tutor_answer(problem_id, answer_type, answer, question=None):
     if problem_id not in st.session_state.tutor_answers_by_problem:
@@ -84,7 +76,6 @@ def add_tutor_answer(problem_id, answer_type, answer, question=None):
     }
 
     st.session_state.tutor_answers_by_problem[problem_id].insert(0, entry)
-
     st.session_state.tutor_answers_by_problem[problem_id] = (
         st.session_state.tutor_answers_by_problem[problem_id][:5]
     )
@@ -94,16 +85,11 @@ def run_code(endpoint, problem_id, code):
     try:
         response = requests.post(
             f"{API_BASE_URL}{endpoint}",
-            json={
-                "problem_id": problem_id,
-                "code": code
-            },
+            json={"problem_id": problem_id, "code": code},
             timeout=10
         )
-
         response.raise_for_status()
         return response.json()
-
     except requests.exceptions.RequestException as error:
         return {
             "status": "error",
@@ -111,30 +97,24 @@ def run_code(endpoint, problem_id, code):
             "results": []
         }
 
+
 def get_submission_history(problem_id):
     try:
         response = requests.get(
             f"{API_BASE_URL}/submissions/{problem_id}",
             timeout=5
         )
-
         response.raise_for_status()
         return response.json()["submissions"]
-
     except requests.exceptions.RequestException:
         return []
 
 
 def get_progress():
     try:
-        response = requests.get(
-            f"{API_BASE_URL}/progress",
-            timeout=5
-        )
-
+        response = requests.get(f"{API_BASE_URL}/progress", timeout=5)
         response.raise_for_status()
         return response.json()
-
     except requests.exceptions.RequestException:
         return {
             "total_problems": 0,
@@ -148,15 +128,25 @@ def get_progress():
 def difficulty_badge(difficulty):
     if difficulty == "Easy":
         return "🟢 Easy"
-
     if difficulty == "Medium":
         return "🟡 Medium"
-
     if difficulty == "Hard":
         return "🔴 Hard"
-
     return difficulty
 
+
+def status_label(status):
+    """Return an emoji-prefixed label for a submission status string."""
+    if status == "passed":
+        return "✅ Passed"
+    if status == "failed":
+        return "❌ Failed"
+    if status == "error":
+        return "⚠️ Error"
+    return status.title()
+
+
+# ── Session state initialisation ───────────────────────────────────────────────
 
 if "code_by_problem" not in st.session_state:
     st.session_state.code_by_problem = {}
@@ -174,9 +164,13 @@ if "editor_versions" not in st.session_state:
     st.session_state.editor_versions = {}
 
 
-st.title("CodeTutor")
+# ── App header ──────────────────────────────────────────────────────────────────
+
+st.title("🧠 CodeTutor")
 st.caption("Practice coding problems with an AI tutor.")
 
+
+# ── Load data ───────────────────────────────────────────────────────────────────
 
 problems = get_problems()
 
@@ -188,64 +182,62 @@ progress = get_progress()
 solved_problem_ids = set(progress["solved_problem_ids"])
 
 
-with st.sidebar:
-    st.header("Problems")
-    
-    st.subheader("Progress")
+# ── Sidebar ─────────────────────────────────────────────────────────────────────
 
+with st.sidebar:
+    st.header("📚 Problems")
+
+    # Progress summary
     solved_total = progress["solved_total"]
     total_problems = progress["total_problems"]
     progress_percent = progress["progress_percent"]
 
-    st.write(f"**Solved:** {solved_total} / {total_problems}")
+    st.metric("Progress", f"{solved_total} / {total_problems} solved")
     st.progress(progress_percent / 100)
 
-    for difficulty, data in progress["by_difficulty"].items():
-        st.caption(
-            f"{difficulty}: {data['solved']} / {data['total']}"
-        )
+    by_diff = progress.get("by_difficulty", {})
+    if by_diff:
+        diff_lines = []
+        for diff, data in by_diff.items():
+            badge = difficulty_badge(diff)
+            diff_lines.append(f"{badge}: {data['solved']}/{data['total']}")
+        st.caption("  ·  ".join(diff_lines))
 
     st.divider()
-    
 
+    # Difficulty filter
     difficulties = ["All"] + sorted(
         list({problem["difficulty"] for problem in problems})
     )
-
-    selected_difficulty = st.selectbox(
-        "Filter by difficulty",
-        difficulties
-    )
+    selected_difficulty = st.selectbox("Filter by difficulty", difficulties)
 
     if selected_difficulty == "All":
         filtered_problems = problems
     else:
         filtered_problems = [
-            problem for problem in problems
-            if problem["difficulty"] == selected_difficulty
+            p for p in problems if p["difficulty"] == selected_difficulty
         ]
 
-    st.write(f"Showing **{len(filtered_problems)}** of **{len(problems)}** problems")
+    st.caption(f"Showing {len(filtered_problems)} of {len(problems)} problems")
 
+    # Problem picker with solved badges
     problem_labels = {}
-
     for problem in filtered_problems:
         solved_prefix = "✅ " if problem["id"] in solved_problem_ids else ""
-        label = f"{solved_prefix}{problem['title']} — {problem['difficulty']}"
+        diff_icon = difficulty_badge(problem["difficulty"]).split()[0]  # emoji only
+        label = f"{solved_prefix}{problem['title']} {diff_icon}"
         problem_labels[label] = problem["id"]
 
-    selected_label = st.selectbox(
-        "Choose a problem",
-        list(problem_labels.keys())
-    )
+    selected_label = st.selectbox("Choose a problem", list(problem_labels.keys()))
 
+
+# ── Load selected problem ───────────────────────────────────────────────────────
 
 selected_problem_id = problem_labels[selected_label]
 problem = get_problem(selected_problem_id)
 
 if problem is None:
     st.stop()
-
 
 code_key = problem["id"]
 
@@ -256,292 +248,300 @@ if code_key not in st.session_state.editor_versions:
     st.session_state.editor_versions[code_key] = 0
 
 
+# ── Two-column layout ───────────────────────────────────────────────────────────
+
 left_col, right_col = st.columns([1, 1])
 
 
+# ── Left column: Problem description ───────────────────────────────────────────
+
 with left_col:
-    title_suffix = " ✅ Solved" if problem["id"] in solved_problem_ids else ""
-    
-    st.header(f"{problem['title']}{title_suffix}")
-    st.write(f"**Difficulty:** {difficulty_badge(problem['difficulty'])}")
-    
-    st.write(f"**Tags:** {', '.join(problem['tags'])}")
+    is_solved = problem["id"] in solved_problem_ids
+    solved_badge = "  ✅ Solved" if is_solved else ""
+
+    st.subheader(f"{problem['title']}{solved_badge}")
+
+    # Difficulty + tags on the same row
+    meta_col1, meta_col2 = st.columns([1, 2])
+    with meta_col1:
+        st.write(difficulty_badge(problem["difficulty"]))
+    with meta_col2:
+        tags = problem.get("tags", [])
+        if tags:
+            st.caption("🏷️ " + "  ·  ".join(tags))
 
     st.divider()
 
-    st.subheader("Description")
+    st.markdown("**Description**")
     st.write(problem["description"])
 
-    st.subheader("Examples")
-
+    st.markdown("**Examples**")
     for index, example in enumerate(problem["examples"], start=1):
-        with st.expander(f"Example {index}", expanded=True):
+        with st.expander(f"Example {index}"):
             st.code(
-                f"Input: {example['input']}\nOutput: {example['output']}"
+                f"Input:  {example['input']}\nOutput: {example['output']}"
             )
-
             if "explanation" in example:
-                st.write(f"**Explanation:** {example['explanation']}")
+                st.caption(f"💡 {example['explanation']}")
 
+
+# ── Right column: Tabbed interface ──────────────────────────────────────────────
 
 with right_col:
-    st.subheader("Your Python Solution")
+    code_tab, tutor_tab, history_tab = st.tabs(["💻 Code", "🤖 AI Tutor", "📋 Submissions"])
 
-    user_code = st_ace(
-        value=st.session_state.code_by_problem[code_key],
-        language="python",
-        theme="monokai",
-        key=f"editor_{code_key}_{st.session_state.editor_versions[code_key]}",
-        height=400,
-        font_size=14,
-        tab_size=4,
-        show_gutter=True,
-        show_print_margin=False,
-        wrap=False,
-        auto_update=True
-    )
+    # ── Code tab ───────────────────────────────────────────────────────────────
+    with code_tab:
+        st.markdown("**Your Python Solution**")
 
-    if user_code is None:
-        user_code = st.session_state.code_by_problem[code_key]
-
-    previous_code = st.session_state.code_by_problem[code_key]
-    code_changed = user_code != previous_code
-
-    if code_changed:
-        st.session_state.code_by_problem[code_key] = user_code
-
-        if problem["id"] in st.session_state.results_by_problem:
-            del st.session_state.results_by_problem[problem["id"]]
-
-        # if problem["id"] in st.session_state.tutor_answers_by_problem:
-        #     del st.session_state.tutor_answers_by_problem[problem["id"]]
-
-    reset_col, info_col = st.columns([1, 3])
-
-    with reset_col:
-        reset_clicked = st.button("Reset Code", use_container_width=True)
-
-    with info_col:
-        st.caption("Run Code checks visible tests. Submit checks all tests and saves your result.")
-
-    if reset_clicked:
-        st.session_state.code_by_problem[code_key] = problem["starter_code"]
-        st.session_state.editor_versions[code_key] += 1
-
-        if problem["id"] in st.session_state.results_by_problem:
-            del st.session_state.results_by_problem[problem["id"]]
-
-        if problem["id"] in st.session_state.tutor_answers_by_problem:
-            del st.session_state.tutor_answers_by_problem[problem["id"]]
-
-        if problem["id"] in st.session_state.last_run_code_by_problem:
-            del st.session_state.last_run_code_by_problem[problem["id"]]
-
-        st.rerun()
-
-    last_run_code = st.session_state.last_run_code_by_problem.get(problem["id"])
-
-    if last_run_code is not None and last_run_code != user_code:
-        st.warning("Code changed since the last run. Run again to update the results.")
-
-    run_col, submit_col = st.columns(2)
-
-    with run_col:
-        run_clicked = st.button(
-            "Run Code",
-            use_container_width=True,
-            help="Runs visible tests only. Does not save the submission."
+        user_code = st_ace(
+            value=st.session_state.code_by_problem[code_key],
+            language="python",
+            theme="monokai",
+            key=f"editor_{code_key}_{st.session_state.editor_versions[code_key]}",
+            height=380,
+            font_size=14,
+            tab_size=4,
+            show_gutter=True,
+            show_print_margin=False,
+            wrap=False,
+            auto_update=True
         )
 
-    with submit_col:
-        submit_clicked = st.button(
-            "Submit",
-            use_container_width=True,
-            help="Runs visible and hidden tests, then saves the submission."
-        )
+        if user_code is None:
+            user_code = st.session_state.code_by_problem[code_key]
 
-    if run_clicked or submit_clicked:
-        endpoint = "/submit" if submit_clicked else "/run"
+        # Detect code changes and clear stale results
+        previous_code = st.session_state.code_by_problem[code_key]
+        if user_code != previous_code:
+            st.session_state.code_by_problem[code_key] = user_code
+            if problem["id"] in st.session_state.results_by_problem:
+                del st.session_state.results_by_problem[problem["id"]]
 
-        st.session_state.results_by_problem[problem["id"]] = run_code(
-            endpoint=endpoint,
-            problem_id=problem["id"],
-            code=user_code
-        )
+        # Reset / info row
+        reset_col, info_col = st.columns([1, 3])
+        with reset_col:
+            reset_clicked = st.button("🔄 Reset Code", use_container_width=True)
+        with info_col:
+            st.caption("Run Code checks visible tests. Submit checks all tests and saves your result.")
 
-        st.session_state.last_run_code_by_problem[problem["id"]] = user_code
-
-        if submit_clicked:
+        if reset_clicked:
+            st.session_state.code_by_problem[code_key] = problem["starter_code"]
+            st.session_state.editor_versions[code_key] += 1
+            if problem["id"] in st.session_state.results_by_problem:
+                del st.session_state.results_by_problem[problem["id"]]
+            if problem["id"] in st.session_state.tutor_answers_by_problem:
+                del st.session_state.tutor_answers_by_problem[problem["id"]]
+            if problem["id"] in st.session_state.last_run_code_by_problem:
+                del st.session_state.last_run_code_by_problem[problem["id"]]
             st.rerun()
 
-    current_result = st.session_state.results_by_problem.get(problem["id"])
+        # Stale-code warning
+        last_run_code = st.session_state.last_run_code_by_problem.get(problem["id"])
+        if last_run_code is not None and last_run_code != user_code:
+            st.warning("⚠️ Code changed since the last run. Run again to update results.")
 
-    if current_result:
-        result = current_result
+        # Run / Submit buttons
+        run_col, submit_col = st.columns(2)
+        with run_col:
+            run_clicked = st.button(
+                "▶ Run Code",
+                use_container_width=True,
+                help="Runs visible tests only. Does not save the submission."
+            )
+        with submit_col:
+            submit_clicked = st.button(
+                "🚀 Submit",
+                use_container_width=True,
+                help="Runs all tests (including hidden) and saves your submission."
+            )
+
+        if run_clicked or submit_clicked:
+            endpoint = "/submit" if submit_clicked else "/run"
+            st.session_state.results_by_problem[problem["id"]] = run_code(
+                endpoint=endpoint,
+                problem_id=problem["id"],
+                code=user_code
+            )
+            st.session_state.last_run_code_by_problem[problem["id"]] = user_code
+            if submit_clicked:
+                st.rerun()
+
+        # ── Test Results ────────────────────────────────────────────────────────
+        current_result = st.session_state.results_by_problem.get(problem["id"])
+
+        if current_result:
+            st.divider()
+            result = current_result
+            r_status = result.get("status", "error")
+
+            if r_status == "passed":
+                st.success("✅ **Accepted** — All tests passed!")
+            elif r_status == "failed":
+                st.error("❌ **Wrong Answer** — Some tests failed.")
+            else:
+                st.error(f"⚠️ **Runtime Error** — {result.get('message', 'Something went wrong.')}")
+
+            if "error" in result:
+                st.code(result["error"])
+
+            test_results = result.get("results", [])
+            if test_results:
+                st.markdown(f"**Test Results** ({sum(1 for t in test_results if t['passed'])}/{len(test_results)} passed)")
+                for test in test_results:
+                    icon = "✅" if test["passed"] else "❌"
+                    label = f"{icon} Test {test['test_number']} — {'Passed' if test['passed'] else 'Failed'}"
+                    with st.expander(label, expanded=not test["passed"]):
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            st.markdown("**Input**")
+                            st.json(test["input"])
+                        with c2:
+                            st.markdown("**Expected**")
+                            st.json(test["expected"])
+                        with c3:
+                            st.markdown("**Actual**")
+                            st.json(test["actual"])
+                        if test.get("error"):
+                            st.markdown("**Error**")
+                            st.code(test["error"])
+
+    # ── AI Tutor tab ────────────────────────────────────────────────────────────
+    with tutor_tab:
+        current_result = st.session_state.results_by_problem.get(problem["id"])
+        first_failed_test = get_first_failed_test(current_result)
+
+        st.markdown("**Ask the AI tutor for help with this problem.**")
+
+        # Quick-action buttons
+        btn_col1, btn_col2 = st.columns(2)
+        btn_col3, btn_col4 = st.columns(2)
+
+        with btn_col1:
+            explain_clicked = st.button("📖 Explain Problem", use_container_width=True)
+        with btn_col2:
+            hint_clicked = st.button("💡 Give Hint", use_container_width=True)
+        with btn_col3:
+            review_clicked = st.button("🔍 Review My Code", use_container_width=True)
+        with btn_col4:
+            debug_clicked = st.button(
+                "🐛 Debug Failed Test",
+                use_container_width=True,
+                disabled=first_failed_test is None,
+                help="Run your code first. Available when a test fails."
+            )
+
+        if first_failed_test is None:
+            st.caption("Run your code and fail a test to enable **Debug Failed Test**.")
+
+        # Handle quick-action clicks
+        if explain_clicked or hint_clicked or review_clicked or debug_clicked:
+            failed_test_payload = None
+            if explain_clicked:
+                tutor_endpoint = "/tutor/explain-problem"
+                answer_type = "Explain Problem"
+            elif hint_clicked:
+                tutor_endpoint = "/tutor/hint"
+                answer_type = "Hint"
+            elif review_clicked:
+                tutor_endpoint = "/tutor/review-code"
+                answer_type = "Review Code"
+            else:
+                tutor_endpoint = "/tutor/debug-failed-test"
+                answer_type = "Debug Failed Test"
+                failed_test_payload = first_failed_test
+
+            with st.spinner("CodeTutor is thinking…"):
+                answer = call_tutor(
+                    endpoint=tutor_endpoint,
+                    problem_id=problem["id"],
+                    code=user_code,
+                    failed_test=failed_test_payload
+                )
+                add_tutor_answer(
+                    problem_id=problem["id"],
+                    answer_type=answer_type,
+                    answer=answer
+                )
 
         st.divider()
-        st.subheader("Test Results")
 
-        if result["status"] == "passed":
-            st.success("All tests passed!")
-        elif result["status"] == "failed":
-            st.error("Some tests failed.")
-        else:
-            st.error(result.get("message", "Something went wrong."))
-
-        if "error" in result:
-            st.code(result["error"])
-
-        for test_result in result.get("results", []):
-            title = f"Test {test_result['test_number']}"
-
-            if test_result["passed"]:
-                title += " — Passed"
-            else:
-                title += " — Failed"
-
-            with st.expander(title, expanded=not test_result["passed"]):
-                st.write("**Input:**")
-                st.json(test_result["input"])
-
-                st.write("**Expected:**")
-                st.json(test_result["expected"])
-
-                st.write("**Actual:**")
-                st.json(test_result["actual"])
-
-                if test_result["error"]:
-                    st.write("**Error:**")
-                    st.code(test_result["error"])
-
-    st.divider()
-    st.subheader("AI Tutor")
-
-    current_result = st.session_state.results_by_problem.get(problem["id"])
-    first_failed_test = get_first_failed_test(current_result)
-
-    tutor_col1, tutor_col2 = st.columns(2)
-    tutor_col3, tutor_col4 = st.columns(2)
-
-    with tutor_col1:
-        explain_clicked = st.button("Explain Problem", use_container_width=True)
-
-    with tutor_col2:
-        hint_clicked = st.button("Give Hint", use_container_width=True)
-
-    with tutor_col3:
-        review_clicked = st.button("Review My Code", use_container_width=True)
-
-    with tutor_col4:
-        debug_clicked = st.button(
-            "Debug Failed Test",
+        # Custom question
+        st.markdown("**Ask a Custom Question**")
+        custom_question = st.text_input(
+            "Question",
+            placeholder="Example: Why do we use a hash map here?",
+            key=f"custom_question_{problem['id']}",
+            label_visibility="collapsed"
+        )
+        ask_clicked = st.button(
+            "Ask CodeTutor",
             use_container_width=True,
-            disabled=first_failed_test is None
+            disabled=not custom_question.strip()
         )
 
-    if explain_clicked or hint_clicked or review_clicked or debug_clicked:
-        failed_test_payload = None
+        if ask_clicked:
+            with st.spinner("CodeTutor is thinking…"):
+                answer = call_tutor(
+                    endpoint="/tutor/ask",
+                    problem_id=problem["id"],
+                    code=user_code,
+                    failed_test=first_failed_test,
+                    question=custom_question
+                )
+                add_tutor_answer(
+                    problem_id=problem["id"],
+                    answer_type="Custom Question",
+                    answer=answer,
+                    question=custom_question
+                )
 
-        if explain_clicked:
-            tutor_endpoint = "/tutor/explain-problem"
-            answer_type = "Explain Problem"
-        elif hint_clicked:
-            tutor_endpoint = "/tutor/hint"
-            answer_type = "Hint"
-        elif review_clicked:
-            tutor_endpoint = "/tutor/review-code"
-            answer_type = "Review Code"
+        # Tutor history
+        current_tutor_history = st.session_state.tutor_answers_by_problem.get(problem["id"], [])
+
+        if current_tutor_history:
+            st.divider()
+            hist_col, clear_col = st.columns([3, 1])
+            with hist_col:
+                st.markdown("**AI Tutor History**")
+            with clear_col:
+                clear_history_clicked = st.button(
+                    "🗑️ Clear",
+                    use_container_width=True,
+                    help="Clear tutor history for this problem"
+                )
+
+            if clear_history_clicked:
+                st.session_state.tutor_answers_by_problem[problem["id"]] = []
+                st.rerun()
+
+            for index, entry in enumerate(current_tutor_history, start=1):
+                title = f"{entry['type']} — {entry['created_at']}"
+                with st.expander(title, expanded=(index == 1)):
+                    if entry.get("question"):
+                        st.markdown(f"**Q:** {entry['question']}")
+                    st.write(entry["answer"])
+
+    # ── Submissions tab ─────────────────────────────────────────────────────────
+    with history_tab:
+        st.markdown("**Latest submissions for this problem**")
+
+        history = get_submission_history(problem["id"])
+
+        if not history:
+            st.info("No submissions yet for this problem. Submit your code to see results here.")
         else:
-            tutor_endpoint = "/tutor/debug-failed-test"
-            answer_type = "Debug Failed Test"
-            failed_test_payload = first_failed_test
+            latest = history[:5]
 
-        with st.spinner("CodeTutor is thinking..."):
-            answer = call_tutor(
-                endpoint=tutor_endpoint,
-                problem_id=problem["id"],
-                code=user_code,
-                failed_test=failed_test_payload
-            )
+            # Build a display table
+            rows = []
+            for sub in latest:
+                rows.append({
+                    "Time": sub["created_at"],
+                    "Status": status_label(sub["status"]),
+                    "Tests": f"{sub['passed_tests']} / {sub['total_tests']}"
+                })
 
-            add_tutor_answer(
-                problem_id=problem["id"],
-                answer_type=answer_type,
-                answer=answer
-            )
-    st.markdown("#### Ask a Custom Question")
+            st.table(rows)
 
-    custom_question = st.text_input(
-        "Ask CodeTutor about this problem",
-        placeholder="Example: Why do we use a hash map here?",
-        key=f"custom_question_{problem['id']}"
-    )
-
-    ask_clicked = st.button(
-        "Ask CodeTutor",
-        use_container_width=True,
-        disabled=not custom_question.strip()
-    )
-
-    if ask_clicked:
-        with st.spinner("CodeTutor is thinking..."):
-            answer = call_tutor(
-                endpoint="/tutor/ask",
-                problem_id=problem["id"],
-                code=user_code,
-                failed_test=first_failed_test,
-                question=custom_question
-            )
-
-            add_tutor_answer(
-                problem_id=problem["id"],
-                answer_type="Custom Question",
-                answer=answer,
-                question=custom_question
-            )
-
-    current_tutor_history = st.session_state.tutor_answers_by_problem.get(problem["id"], [])
-
-    if current_tutor_history:
-        st.markdown("### AI Tutor History")
-
-        clear_history_clicked = st.button(
-            "Clear Tutor History",
-            use_container_width=True
-        )
-
-        if clear_history_clicked:
-            st.session_state.tutor_answers_by_problem[problem["id"]] = []
-            st.rerun()
-
-        for index, entry in enumerate(current_tutor_history, start=1):
-            title = f"{entry['type']} — {entry['created_at']}"
-
-            with st.expander(title, expanded=index == 1):
-                if entry.get("question"):
-                    st.write(f"**Question:** {entry['question']}")
-
-                st.write(entry["answer"])
-
-    st.divider()
-    st.subheader("Submission History")
-
-    history = get_submission_history(problem["id"])
-
-    if not history:
-        st.info("No submissions yet for this problem.")
-    else:
-        for submission in history[:5]:
-            status = submission["status"]
-            passed_tests = submission["passed_tests"]
-            total_tests = submission["total_tests"]
-            created_at = submission["created_at"]
-
-            if status == "passed":
-                st.success(
-                    f"{created_at} — Passed ({passed_tests}/{total_tests})"
-                )
-            else:
-                st.error(
-                    f"{created_at} — {status.title()} ({passed_tests}/{total_tests})"
-                )
+            st.caption(f"Showing latest {len(latest)} of {len(history)} submissions.")
